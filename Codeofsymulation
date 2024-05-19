@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Particle Gravity Simulation</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: black;
+            color: white;
+        }
+        canvas {
+            border: 1px solid white;
+        }
+    </style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    // Set canvas dimensions
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // Prompt for number of particles
+    let numberOfParticles = prompt("Enter the number of particles:");
+    numberOfParticles = parseInt(numberOfParticles);
+
+    // Gravity constant
+    const G = 0.5;
+    // Max speed
+    const maxSpeed = 5; // Lowered max speed
+
+    // Particle class
+    class Particle {
+        constructor(x, y, radius, color) {
+            this.x = x;
+            this.y = y;
+            this.radius = radius;
+            this.color = color; // Color added
+            this.mass = radius * radius * Math.PI; // Simplified mass calculation
+            this.dx = (Math.random() - 0.5) * 2; // Initial random velocity
+            this.dy = (Math.random() - 0.5) * 2;
+        }
+
+        draw() {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = this.color; // Set color
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        update(particles) {
+            // Check collision with other particles
+            particles.forEach(particle => {
+                if (particle !== this) {
+                    const dx = particle.x - this.x;
+                    const dy = particle.y - this.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    const minDistance = this.radius + particle.radius;
+
+                    if (distance < minDistance) {
+                        // Calculate collision angle
+                        const collisionAngle = Math.atan2(dy, dx);
+
+                        // Rotate velocities
+                        const rotatedVelX1 = this.dx * Math.cos(collisionAngle) + this.dy * Math.sin(collisionAngle);
+                        const rotatedVelY1 = this.dy * Math.cos(collisionAngle) - this.dx * Math.sin(collisionAngle);
+                        const rotatedVelX2 = particle.dx * Math.cos(collisionAngle) + particle.dy * Math.sin(collisionAngle);
+                        const rotatedVelY2 = particle.dy * Math.cos(collisionAngle) - particle.dx * Math.sin(collisionAngle);
+
+                        // Calculate new velocities
+                        const finalVelX1 = rotatedVelX2;
+                        const finalVelX2 = rotatedVelX1;
+                        const finalVelY1 = rotatedVelY1;
+                        const finalVelY2 = rotatedVelY2;
+
+                        // Rotate velocities back
+                        this.dx = finalVelX1 * Math.cos(-collisionAngle) + finalVelY1 * Math.sin(-collisionAngle);
+                        this.dy = finalVelY1 * Math.cos(-collisionAngle) - finalVelX1 * Math.sin(-collisionAngle);
+                        particle.dx = finalVelX2 * Math.cos(-collisionAngle) + finalVelY2 * Math.sin(-collisionAngle);
+                        particle.dy = finalVelY2 * Math.cos(-collisionAngle) - finalVelX2 * Math.sin(-collisionAngle);
+
+                        // Move particles apart to avoid sticking
+                        const overlap = minDistance - distance;
+                        const moveX = overlap * Math.cos(collisionAngle);
+                        const moveY = overlap * Math.sin(collisionAngle);
+                        this.x -= moveX;
+                        this.y -= moveY;
+                        particle.x += moveX;
+                        particle.y += moveY;
+                    }
+                }
+            });
+
+            // Apply gravitational force from every other particle
+            particles.forEach(particle => {
+                if (particle !== this) {
+                    let dx = particle.x - this.x;
+                    let dy = particle.y - this.y;
+                    let distance = Math.sqrt(dx * dx + dy * dy);
+                    let force = (G * this.mass * particle.mass) / (distance * distance);
+
+                    let ax = (force * dx) / distance;
+                    let ay = (force * dy) / distance;
+                    this.dx += ax / this.mass;
+                    this.dy += ay / this.mass;
+                }
+            });
+
+            // Check if speed exceeds maxSpeed
+            let speed = Math.sqrt(this.dx * this.dx + this.dy * this.dy);
+            if (speed > maxSpeed) {
+                let ratio = maxSpeed / speed;
+                this.dx *= ratio;
+                this.dy *= ratio;
+            }
+
+            // Update position based on velocity
+            this.x += this.dx;
+            this.y += this.dy;
+
+            // Boundary conditions
+            if (this.x + this.radius > canvas.width || this.x - this.radius < 0) {
+                this.dx = -this.dx;
+            }
+            if (this.y + this.radius > canvas.height || this.y - this.radius < 0) {
+                this.dy = -this.dy;
+            }
+        }
+    }
+
+    // Create particles
+    const particles = [];
+    for (let i = 0; i < numberOfParticles; i++) {
+        const radius = 5;
+        const x = Math.random() * (canvas.width - radius * 2) + radius;
+        const y = Math.random() * (canvas.height - radius * 2) + radius;
+        const color = getRandomColor(); // Generate random color
+        particles.push(new Particle(x, y, radius, color));
+    }
+
+    // Function to generate random color
+    function getRandomColor() {
+        const letters = '0123456789ABCDEF';
+        let color = '#';
+        for (let i = 0; i < 6; i++) {
+            color += letters[Math.floor(Math.random() * 16)];
+        }
+        return color;
+    }
+
+    // Animation loop
+    function animate() {
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Update and draw particles
+        particles.forEach(particle => {
+            particle.update(particles);
+            particle.draw();
+        });
+
+        // Request animation frame
+        requestAnimationFrame(animate);
+    }
+
+    // Start animation
+    animate();
+});
+</script>
+</body>
+</html>
